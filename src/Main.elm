@@ -26,15 +26,18 @@ type Msg
     | Move
     | TurnLeft
     | TurnRight
-    | Report
     | InputX String
     | InputY String
 
 
-type alias PotHole =
+type alias Coordinate =
     { x : Int
     , y : Int
     }
+
+
+type alias PotHole =
+    Coordinate
 
 
 type alias Table =
@@ -44,24 +47,15 @@ type alias Table =
     }
 
 
-type alias Coordinate =
-    { x : Int
-    , y : Int
-    }
-
-
 type alias Robot =
-    { x : Int
-    , y : Int
+    { currentCoordinate : Coordinate
     , direction : Direction
     , targetCoordinate : Coordinate
     }
 
 
 type alias Form =
-    { x : Int
-    , y : Int
-    }
+    Coordinate
 
 
 type alias Model =
@@ -73,8 +67,8 @@ type alias Model =
 
 potHoles : List PotHole
 potHoles =
-    [ PotHole 2 2
-    , PotHole 2 4
+    [ Coordinate 2 2
+    , Coordinate 2 4
     ]
 
 
@@ -82,7 +76,7 @@ initModel : Model
 initModel =
     { table = Table 6 6 potHoles
     , robot = Nothing
-    , form = Form 0 0
+    , form = Coordinate 0 0
     }
 
 
@@ -154,8 +148,8 @@ isPotHole x y potholes =
     List.any (\pothole -> x == pothole.x && y == pothole.y) potholes
 
 
-validPosition : Table -> Int -> Int -> Bool
-validPosition table x y =
+validCoordinate : Table -> Int -> Int -> Bool
+validCoordinate table x y =
     let
         validBoundary =
             x >= 0 && x <= table.cols - 1 && y >= 0 && y <= table.rows - 1
@@ -168,8 +162,12 @@ validPosition table x y =
 
 placeRobot : Table -> Int -> Int -> Direction -> Maybe Robot
 placeRobot table x y direction =
-    if validPosition table x y then
-        Just (Robot x y direction targetCoordinate)
+    let
+        currentCoordinate =
+            Coordinate x y
+    in
+    if validCoordinate table x y then
+        Just (Robot currentCoordinate direction targetCoordinate)
 
     else
         Nothing
@@ -178,23 +176,29 @@ placeRobot table x y direction =
 moveRobot : Table -> Robot -> Robot
 moveRobot table robot =
     let
+        currentCoordinate =
+            robot.currentCoordinate
+
         ( newX, newY ) =
             case robot.direction of
                 North ->
-                    ( robot.x, robot.y - 1 )
+                    ( currentCoordinate.x, currentCoordinate.y - 1 )
 
                 East ->
-                    ( robot.x + 1, robot.y )
+                    ( currentCoordinate.x + 1, currentCoordinate.y )
 
                 South ->
-                    ( robot.x, robot.y + 1 )
+                    ( currentCoordinate.x, currentCoordinate.y + 1 )
 
                 West ->
-                    ( robot.x - 1, robot.y )
+                    ( currentCoordinate.x - 1, currentCoordinate.y )
+
+        newCoordinate =
+            Coordinate newX newY
 
         updatedRobot =
-            if validPosition table newX newY then
-                { robot | x = newX, y = newY }
+            if validCoordinate table newX newY then
+                { robot | currentCoordinate = newCoordinate }
 
             else
                 robot
@@ -298,9 +302,6 @@ update msg model =
             in
             ( newModel, newCmd )
 
-        Report ->
-            ( model, Cmd.none )
-
 
 
 -- VIEW
@@ -312,8 +313,8 @@ renderRobotStatus robot =
         Just currentRobot ->
             let
                 position =
-                    [ String.fromInt currentRobot.x
-                    , String.fromInt currentRobot.y
+                    [ String.fromInt currentRobot.currentCoordinate.x
+                    , String.fromInt currentRobot.currentCoordinate.y
                     , directionToString currentRobot.direction
                     ]
                         |> String.join " - "
@@ -356,7 +357,7 @@ renderBox posX posY table robot =
             robot.targetCoordinate.x == posX && robot.targetCoordinate.y == posY
 
         isCurrentPosition =
-            posX == robot.x && posY == robot.y
+            posX == robot.currentCoordinate.x && posY == robot.currentCoordinate.y
 
         color =
             if isCurrentPosition then
