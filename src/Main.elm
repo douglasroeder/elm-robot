@@ -1,9 +1,13 @@
 module Main exposing (Msg(..), main, update, view)
 
 import Browser exposing (Document, document)
+import Color
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
+import TypedSvg exposing (rect, svg)
+import TypedSvg.Attributes exposing (fill, height, stroke, strokeWidth, viewBox, width, x, y)
+import TypedSvg.Types exposing (Fill(..), px)
 
 
 
@@ -27,9 +31,22 @@ type Msg
     | InputY String
 
 
+type alias PotHole =
+    { x : Int
+    , y : Int
+    }
+
+
 type alias Table =
     { cols : Int
     , rows : Int
+    , potHoles : List PotHole
+    }
+
+
+type alias Coordinate =
+    { x : Int
+    , y : Int
     }
 
 
@@ -37,23 +54,35 @@ type alias Robot =
     { x : Int
     , y : Int
     , direction : Direction
+    , targetCoordinate : Coordinate
+    }
+
+
+type alias Form =
+    { x : Int
+    , y : Int
     }
 
 
 type alias Model =
     { table : Table
     , robot : Maybe Robot
-    , x : Int
-    , y : Int
+    , form : Form
     }
+
+
+potHoles : List PotHole
+potHoles =
+    [ PotHole 2 2
+    , PotHole 2 4
+    ]
 
 
 initModel : Model
 initModel =
-    { table = Table 4 4
+    { table = Table 6 6 potHoles
     , robot = Nothing
-    , x = 0
-    , y = 0
+    , form = Form 0 0
     }
 
 
@@ -62,7 +91,13 @@ init flags =
     ( initModel, Cmd.none )
 
 
+targetCoordinate : Coordinate
+targetCoordinate =
+    Coordinate 4 4
 
+
+
+-- TODO: ROUTER
 -- UPDATE
 
 
@@ -114,15 +149,27 @@ directionToString direction =
             "West"
 
 
+isPotHole : Int -> Int -> List PotHole -> Bool
+isPotHole x y potholes =
+    List.any (\pothole -> x == pothole.x && y == pothole.y) potholes
+
+
 validPosition : Table -> Int -> Int -> Bool
 validPosition table x y =
-    x >= 0 && x <= table.cols && y >= 0 && y <= table.rows
+    let
+        validBoundary =
+            x >= 0 && x <= table.cols - 1 && y >= 0 && y <= table.rows - 1
+
+        notPotHole =
+            not (isPotHole x y table.potHoles)
+    in
+    validBoundary && notPotHole
 
 
 placeRobot : Table -> Int -> Int -> Direction -> Maybe Robot
 placeRobot table x y direction =
     if validPosition table x y then
-        Just (Robot x y direction)
+        Just (Robot x y direction targetCoordinate)
 
     else
         Nothing
@@ -134,13 +181,13 @@ moveRobot table robot =
         ( newX, newY ) =
             case robot.direction of
                 North ->
-                    ( robot.x, robot.y + 1 )
+                    ( robot.x, robot.y - 1 )
 
                 East ->
                     ( robot.x + 1, robot.y )
 
                 South ->
-                    ( robot.x, robot.y - 1 )
+                    ( robot.x, robot.y + 1 )
 
                 West ->
                     ( robot.x - 1, robot.y )
@@ -159,10 +206,24 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         InputX x ->
-            ( { model | x = Maybe.withDefault 0 (String.toInt x) }, Cmd.none )
+            let
+                oldForm =
+                    model.form
+
+                updatedForm =
+                    { oldForm | x = Maybe.withDefault 0 (String.toInt x) }
+            in
+            ( { model | form = updatedForm }, Cmd.none )
 
         InputY y ->
-            ( { model | y = Maybe.withDefault 0 (String.toInt y) }, Cmd.none )
+            let
+                oldForm =
+                    model.form
+
+                updatedForm =
+                    { oldForm | y = Maybe.withDefault 0 (String.toInt y) }
+            in
+            ( { model | form = updatedForm }, Cmd.none )
 
         Move ->
             let
@@ -183,7 +244,7 @@ update msg model =
         Place ->
             let
                 newRobot =
-                    placeRobot model.table model.x model.y North
+                    placeRobot model.table model.form.x model.form.y South
             in
             ( { model
                 | robot = newRobot
@@ -282,16 +343,105 @@ renderRobotControls =
         ]
 
 
-renderTable : Table -> Html Msg
-renderTable table =
+renderBox : Int -> Int -> Table -> Robot -> Html Msg
+renderBox posX posY table robot =
+    let
+        xX =
+            posX * 30 + 1
+
+        yY =
+            posY * 30 + 1
+
+        isTargetCoordinate =
+            robot.targetCoordinate.x == posX && robot.targetCoordinate.y == posY
+
+        color =
+            if posX == robot.x && posY == robot.y then
+                Color.blue
+
+            else if isTargetCoordinate then
+                Color.green
+
+            else if isPotHole posX posY table.potHoles then
+                Color.red
+
+            else
+                Color.white
+    in
+    rect
+        [ x (px (toFloat xX))
+        , y (px (toFloat yY))
+        , width (px 30)
+        , height (px 30)
+        , fill <| Fill color
+        , strokeWidth (px 1)
+        , stroke <| Color.black
+        ]
+        []
+
+
+renderTable : Table -> Robot -> Html Msg
+renderTable table robot =
+    let
+        svgHeight =
+            table.rows * 35
+    in
     div []
-        [ text ("Table: [" ++ String.fromInt table.cols ++ "x" ++ String.fromInt table.rows ++ "]") ]
+        [ text ("Table: [" ++ String.fromInt table.cols ++ "x" ++ String.fromInt table.rows ++ "]")
+        , svg [ viewBox 0 0 800 (toFloat svgHeight) ]
+            [ renderBox 0 0 table robot
+            , renderBox 1 0 table robot
+            , renderBox 2 0 table robot
+            , renderBox 3 0 table robot
+            , renderBox 4 0 table robot
+            , renderBox 5 0 table robot
+            , renderBox 0 1 table robot
+            , renderBox 1 1 table robot
+            , renderBox 2 1 table robot
+            , renderBox 3 1 table robot
+            , renderBox 4 1 table robot
+            , renderBox 5 1 table robot
+            , renderBox 0 2 table robot
+            , renderBox 1 2 table robot
+            , renderBox 2 2 table robot
+            , renderBox 3 2 table robot
+            , renderBox 4 2 table robot
+            , renderBox 5 2 table robot
+            , renderBox 0 3 table robot
+            , renderBox 1 3 table robot
+            , renderBox 2 3 table robot
+            , renderBox 3 3 table robot
+            , renderBox 4 3 table robot
+            , renderBox 5 3 table robot
+            , renderBox 0 4 table robot
+            , renderBox 1 4 table robot
+            , renderBox 2 4 table robot
+            , renderBox 3 4 table robot
+            , renderBox 4 4 table robot
+            , renderBox 5 4 table robot
+            , renderBox 0 5 table robot
+            , renderBox 1 5 table robot
+            , renderBox 2 5 table robot
+            , renderBox 3 5 table robot
+            , renderBox 4 5 table robot
+            , renderBox 5 5 table robot
+            ]
+        ]
 
 
 renderView : Model -> Html Msg
 renderView model =
+    let
+        renderBoard =
+            case model.robot of
+                Just currentRobot ->
+                    renderTable model.table currentRobot
+
+                Nothing ->
+                    text ""
+    in
     div []
-        [ renderTable model.table
+        [ renderBoard
         , renderRobotControls
         , renderRobotStatus model.robot
         ]
