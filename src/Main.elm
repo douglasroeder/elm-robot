@@ -355,8 +355,11 @@ renderBox posX posY table robot =
         isTargetCoordinate =
             robot.targetCoordinate.x == posX && robot.targetCoordinate.y == posY
 
+        isCurrentPosition =
+            posX == robot.x && posY == robot.y
+
         color =
-            if posX == robot.x && posY == robot.y then
+            if isCurrentPosition then
                 Color.blue
 
             else if isTargetCoordinate then
@@ -380,6 +383,28 @@ renderBox posX posY table robot =
         []
 
 
+renderCols : Int -> Int -> Table -> Robot -> List (Html Msg)
+renderCols x y table robot =
+    if x < 0 then
+        []
+
+    else
+        renderBox x y table robot :: renderCols (x - 1) y table robot
+
+
+renderBoxes : Int -> Int -> Table -> Robot -> List (Html Msg)
+renderBoxes x y table robot =
+    let
+        cols =
+            renderCols x y table robot
+    in
+    if y < 0 then
+        []
+
+    else
+        List.append cols (renderBoxes x (y - 1) table robot)
+
+
 renderTable : Table -> Robot -> Html Msg
 renderTable table robot =
     let
@@ -389,43 +414,7 @@ renderTable table robot =
     div []
         [ text ("Table: [" ++ String.fromInt table.cols ++ "x" ++ String.fromInt table.rows ++ "]")
         , svg [ viewBox 0 0 800 (toFloat svgHeight) ]
-            [ renderBox 0 0 table robot
-            , renderBox 1 0 table robot
-            , renderBox 2 0 table robot
-            , renderBox 3 0 table robot
-            , renderBox 4 0 table robot
-            , renderBox 5 0 table robot
-            , renderBox 0 1 table robot
-            , renderBox 1 1 table robot
-            , renderBox 2 1 table robot
-            , renderBox 3 1 table robot
-            , renderBox 4 1 table robot
-            , renderBox 5 1 table robot
-            , renderBox 0 2 table robot
-            , renderBox 1 2 table robot
-            , renderBox 2 2 table robot
-            , renderBox 3 2 table robot
-            , renderBox 4 2 table robot
-            , renderBox 5 2 table robot
-            , renderBox 0 3 table robot
-            , renderBox 1 3 table robot
-            , renderBox 2 3 table robot
-            , renderBox 3 3 table robot
-            , renderBox 4 3 table robot
-            , renderBox 5 3 table robot
-            , renderBox 0 4 table robot
-            , renderBox 1 4 table robot
-            , renderBox 2 4 table robot
-            , renderBox 3 4 table robot
-            , renderBox 4 4 table robot
-            , renderBox 5 4 table robot
-            , renderBox 0 5 table robot
-            , renderBox 1 5 table robot
-            , renderBox 2 5 table robot
-            , renderBox 3 5 table robot
-            , renderBox 4 5 table robot
-            , renderBox 5 5 table robot
-            ]
+            (renderBoxes (table.cols - 1) (table.rows - 1) table robot)
         ]
 
 
