@@ -62,6 +62,7 @@ type alias Model =
     { table : Table
     , robot : Maybe Robot
     , form : Form
+    , routeToTarget : List Coordinate
     }
 
 
@@ -77,6 +78,7 @@ initModel =
     { table = Table 6 6 potHoles
     , robot = Nothing
     , form = Coordinate 0 0
+    , routeToTarget = []
     }
 
 
@@ -92,6 +94,48 @@ targetCoordinate =
 
 
 -- TODO: ROUTER
+
+
+getAdjacents : Table -> Coordinate -> List Coordinate -> List Coordinate
+getAdjacents table currentCoord visitedCoords =
+    let
+        adjacents =
+            [ Coordinate (currentCoord.x + 1) currentCoord.y
+            , Coordinate currentCoord.x (currentCoord.y + 1)
+            , Coordinate (currentCoord.x - 1) currentCoord.y
+            , Coordinate currentCoord.x (currentCoord.y - 1)
+            ]
+
+        reachableAdjacents =
+            List.filter (\adjacent -> validCoordinate table adjacent.x adjacent.y) adjacents
+
+        nonVisitedCoords =
+            List.filter (\adjacent -> not (List.member adjacent visitedCoords)) reachableAdjacents
+
+        updatedVisitedCoords =
+            currentCoord :: visitedCoords
+
+        log =
+            Debug.log "currentCoord" currentCoord
+    in
+    case nonVisitedCoords of
+        [] ->
+            []
+
+        nextCoord :: remaining ->
+            getAdjacents table nextCoord updatedVisitedCoords
+
+
+findPath : Table -> Coordinate -> Coordinate -> List Coordinate
+findPath table currentCoord finalCoord =
+    let
+        adjacents =
+            getAdjacents table currentCoord []
+    in
+    adjacents
+
+
+
 -- UPDATE
 
 
@@ -202,6 +246,12 @@ moveRobot table robot =
 
             else
                 robot
+
+        path =
+            findPath table newCoordinate targetCoordinate
+
+        log =
+            Debug.log "path" path
     in
     updatedRobot
 
