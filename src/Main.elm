@@ -94,10 +94,11 @@ targetCoordinate =
 
 
 -- TODO: ROUTER
+-- ITERATE THROUGH ALL ADJACENTS, NOT ONLY THE FIRST ONE
 
 
-getAdjacents : Table -> Coordinate -> List Coordinate -> List Coordinate
-getAdjacents table currentCoord visitedCoords =
+getAdjacents : Table -> Coordinate -> Coordinate -> List Coordinate -> List Coordinate
+getAdjacents table currentCoord finalCoord visitedCoords =
     let
         adjacents =
             [ Coordinate (currentCoord.x + 1) currentCoord.y
@@ -115,22 +116,26 @@ getAdjacents table currentCoord visitedCoords =
         updatedVisitedCoords =
             currentCoord :: visitedCoords
 
-        log =
-            Debug.log "currentCoord" currentCoord
+        foundTarget =
+            List.member finalCoord updatedVisitedCoords
     in
-    case nonVisitedCoords of
-        [] ->
-            []
+    if foundTarget then
+        updatedVisitedCoords
 
-        nextCoord :: remaining ->
-            getAdjacents table nextCoord updatedVisitedCoords
+    else
+        case nonVisitedCoords of
+            [] ->
+                []
+
+            nextCoord :: _ ->
+                getAdjacents table nextCoord finalCoord updatedVisitedCoords
 
 
 findPath : Table -> Coordinate -> Coordinate -> List Coordinate
 findPath table currentCoord finalCoord =
     let
         adjacents =
-            getAdjacents table currentCoord []
+            getAdjacents table currentCoord finalCoord []
     in
     adjacents
 
@@ -246,12 +251,6 @@ moveRobot table robot =
 
             else
                 robot
-
-        path =
-            findPath table newCoordinate targetCoordinate
-
-        log =
-            Debug.log "path" path
     in
     updatedRobot
 
@@ -284,8 +283,14 @@ update msg model =
                 ( newModel, newCmd ) =
                     case model.robot of
                         Just currentRobot ->
+                            let
+                                path =
+                                    findPath model.table currentRobot.currentCoordinate currentRobot.targetCoordinate
+                                        |> List.reverse
+                            in
                             ( { model
                                 | robot = Just (moveRobot model.table currentRobot)
+                                , routeToTarget = path
                               }
                             , Cmd.none
                             )
@@ -469,6 +474,12 @@ renderTable table robot =
         ]
 
 
+renderRoute : Coordinate -> Html Msg
+renderRoute coord =
+    div []
+        [ text ("x: " ++ String.fromInt coord.x ++ " y: " ++ String.fromInt coord.y) ]
+
+
 renderView : Model -> Html Msg
 renderView model =
     let
@@ -484,6 +495,11 @@ renderView model =
         [ renderBoard
         , renderRobotControls
         , renderRobotStatus model.robot
+        , div []
+            [ hr [] []
+            , div [] [ text "Possible Route" ]
+            , div [] (List.map renderRoute model.routeToTarget)
+            ]
         ]
 
 
